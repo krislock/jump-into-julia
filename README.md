@@ -13,7 +13,7 @@ kinds of numbers in a few lines each, and Julia's own code works with them.
 
 ## Files
 
-- `index.html`: the handout. View it on this repo's GitHub Pages site, or open it in a browser.
+- `index.html`: the handout. View it at <https://krislock.github.io/jump-into-julia/>.
 - `jump_into_julia.jl`: all of the handout code in order, with checks at the end.
 
 ## Running the code
