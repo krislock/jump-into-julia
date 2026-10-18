@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jump into Julia</title>
+<script>
+  window.MathJax = { tex: { inlineMath: [['$','$'], ['\\(','\\)']] } };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+<style>
+  :root {
+    --ink: #1d1d1f;
+    --muted: #5a5a60;
+    --rule: #d9d6cf;
+    --code-bg: #f5f3ee;
+    --accent: #9558b2;   /* Julia purple */
+    --note-bg: #f3eef7;
+  }
+  @media screen and (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #e8e6e3; --muted: #a8a6a3; --rule: #3a3936;
+      --code-bg: #262522; --accent: #c39ad6; --note-bg: #2c2533; --bg: #1a1918;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #e8e6e3; --muted: #a8a6a3; --rule: #3a3936;
+    --code-bg: #262522; --accent: #c39ad6; --note-bg: #2c2533; --bg: #1a1918;
+  }
+  .c { color: var(--muted) !important; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg, #fff); color: var(--ink);
+    font: 16px/1.55 Georgia, "Times New Roman", serif;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  header { border-bottom: 2px solid var(--accent); margin-bottom: 24px; padding-bottom: 12px; }
+  h1 { font-size: 1.9rem; margin: 0 0 4px; line-height: 1.2; }
+  .sub { color: var(--muted); margin: 0; font-size: 0.98rem; }
+  h2 {
+    font-size: 1.25rem; margin: 32px 0 8px; color: var(--accent);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  h3 { font-size: 1.02rem; margin: 20px 0 6px; font-family: system-ui, -apple-system, sans-serif; }
+  p, li { margin: 6px 0; }
+  ul { padding-left: 22px; }
+  pre {
+    background: var(--code-bg); border-left: 3px solid var(--accent);
+    padding: 10px 12px; overflow-x: auto; margin: 10px 0;
+    font: 13.5px/1.45 "JuliaMono", "SF Mono", Menlo, Consolas, monospace;
+    break-inside: avoid;
+  }
+  code { font-family: "JuliaMono", "SF Mono", Menlo, Consolas, monospace; font-size: 0.9em; }
+  p code, li code { background: var(--code-bg); padding: 1px 4px; border-radius: 3px; }
+  .c { color: #7a7a80; }         /* comments / expected output */
+  .note {
+    background: var(--note-bg); padding: 10px 14px; margin: 14px 0;
+    border-radius: 4px; break-inside: avoid;
+  }
+  .note strong { color: var(--accent); }
+  footer { margin-top: 40px; border-top: 1px solid var(--rule); padding-top: 10px;
+           color: var(--muted); font-size: 0.88rem; }
+  a { color: var(--accent); }
+  @page { size: letter; margin: 0.5in; }
+  @media print {
+    main { padding: 0; max-width: none; }
+    body { font-size: 10pt; line-height: 1.35; }
+    header { margin-bottom: 10px; padding-bottom: 6px; }
+    h1 { font-size: 18pt; }
+    h2 { font-size: 12pt; margin: 14px 0 4px; break-after: avoid; }
+    h3 { font-size: 10.5pt; margin: 10px 0 3px; break-after: avoid; }
+    p, li { margin: 3px 0; }
+    pre { font-size: 8pt; line-height: 1.3; padding: 5px 8px; margin: 5px 0; }
+    .note { padding: 6px 10px; margin: 8px 0; }
+    footer { margin-top: 14px; font-size: 8.5pt; }
+    a { color: var(--ink); text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>Jump into Julia</h1>
+  <p class="sub">Types, multiple dispatch, and automatic differentiation</p>
+  <p class="sub">Tech Tacos · 71-North studio · Tuesday, October 20, 2026, 5:00 pm · Dr. Nathan Krislock</p>
+</header>
+
+<p>Today we build two new kinds of numbers in a few lines each: integers mod $p$, and
+dual numbers that compute derivatives. Then we combine them without writing any new
+code. All you need is the Julia REPL and one small package.</p>
+
+<h2>0. REPL tips</h2>
+<ul>
+  <li>Start Julia by typing <code>julia</code> in a terminal, or open the Julia app.</li>
+  <li>Type <code>?</code> for help mode, <code>]</code> for package mode, and Backspace to go back.</li>
+  <li>Unicode: type <code>\varepsilon</code> then press Tab to get <code>ε</code>.</li>
+  <li><code>methods(f)</code> lists all the methods of a function <code>f</code>.
+      <code>@which f(x)</code> shows which method Julia picks.</li>
+</ul>
+
+<h2>1. Multiple dispatch in one minute</h2>
+<p>A Julia function can have many <em>methods</em>. Julia picks the most specific
+method based on the types of <em>all</em> the arguments.</p>
+<pre>describe(x)          = "something"
+describe(x::Number)  = "a number"
+describe(x::Integer) = "an integer"
+describe(x::String)  = "a string"
+
+describe(1), describe(1.5), describe("hi"), describe([1, 2])
+<span class="c"># ("an integer", "a number", "a string", "something")</span>
+
+methods(+)           <span class="c"># + itself has around 200 methods</span></pre>
+<p>Arithmetic such as <code>+</code> and <code>*</code> is just ordinary functions with
+many methods. We can add our own.</p>
+
+<h2>2. Integers mod $p$</h2>
+<p>The integers mod a prime $p$ form a field $\mathbb{Z}_p$: we can add, subtract, multiply,
+and divide by anything nonzero. We put $p$ <em>in the type</em>, so
+<code>Mod{7}</code> and <code>Mod{11}</code> are different types.</p>
+<h3>Installing a package</h3>
+<p>Julia has thousands of free packages. You can browse them at
+<a href="https://juliapackages.com">juliapackages.com</a>. We need one, Primes.jl, for its
+<code>isprime</code> function. At the <code>julia&gt;</code> prompt, press <code>]</code>
+to enter package mode. The prompt changes to <code>(@v1.13) pkg&gt;</code>. Type
+<code>add Primes</code>, then press Backspace to go back.</p>
+<pre>] add Primes              <span class="c"># one time only; the first add can take a minute</span>
+using Primes              <span class="c"># load it in each new session</span>
+isprime(7), isprime(91)   <span class="c"># (true, false)   91 = 7 × 13</span></pre>
+
+<h3>The type</h3>
+<pre>struct Mod{p} &lt;: Integer
+    k::Int
+    function Mod{p}(k) where p
+        @assert isprime(p)
+        new(mod(k, p))
+    end
+end
+
+import Base: +, -, *, /, inv, show, promote_rule, oneunit, abs, rand
+
+show(io::IO, a::Mod{p}) where p =
+    print(io, get(io, :compact, false) ? a.k : "$(a.k) (mod $p)")
+
++(a::Mod{p}, b::Mod{p}) where p = Mod{p}(a.k + b.k)
+-(a::Mod{p}) where p = Mod{p}(-a.k)
+-(a::Mod{p}, b::Mod{p}) where p = a + -b
+*(a::Mod{p}, b::Mod{p}) where p = Mod{p}(a.k * b.k)
+inv(a::Mod{p}) where p = Mod{p}(invmod(a.k, p))
+/(a::Mod{p}, b::Mod{p}) where p = a * inv(b)
+
+promote_rule(::Type{Mod{p}}, ::Type{Int}) where p = Mod{p}   <span class="c"># Mod + Int gives Mod</span>
+oneunit(::Type{Mod{p}}) where p = Mod{p}(1)
+abs(a::Mod{p}) where p = a.k        <span class="c"># used by \ to choose pivots</span>
+
+rand(::Type{Mod{p}}, d::Integer, dims::Integer...) where p =
+    Mod{p}.(rand(0:p-1, d, dims...))</pre>
+
+<h3>Try it</h3>
+<pre>a = Mod{7}(3)
+b = Mod{7}(5)
+a + b        <span class="c"># 1 (mod 7)</span>
+a * b        <span class="c"># 1 (mod 7)</span>
+inv(a)       <span class="c"># 5 (mod 7)</span>
+a / b        <span class="c"># 2 (mod 7)</span>
+a + 10       <span class="c"># 6 (mod 7)   promotion at work</span>
+a^100        <span class="c"># 4 (mod 7)   we never wrote ^ ; Julia's generic power code works</span></pre>
+
+<h3>Linear algebra over $\mathbb{Z}_7$, for free</h3>
+<pre>A = Mod{7}.([2 1 0; 1 3 1; 0 1 4])
+b = Mod{7}.([1, 2, 3])
+x = A \ b    <span class="c"># Julia's generic LU solver, run in mod-7 arithmetic</span>
+A * x == b   <span class="c"># true</span>
+
+Ainv = inv(A)   <span class="c"># [1 6 2; 6 2 3; 2 3 3], the inverse mod 7</span>
+A * Ainv        <span class="c"># the identity matrix, mod 7</span>
+
+B = rand(Mod{7}, 4, 4)   <span class="c"># a random matrix (singular about 16% of the time)</span></pre>
+<p>Nobody who wrote Julia's <code>\</code> knew about our <code>Mod</code> type. It works
+because the solver only needs <code>+</code>, <code>-</code>, <code>*</code>,
+<code>/</code>, and a way to pick pivots, and we supplied those.</p>
+
+<h2>3. Automatic differentiation with dual numbers</h2>
+<p>A dual number is $a + b\varepsilon$, where $\varepsilon^2 = 0$. Expanding gives</p>
+$$ f(a + b\varepsilon) = f(a) + b\,f'(a)\,\varepsilon . $$
+<p>So if we evaluate $f$ at $a + \varepsilon$, the $\varepsilon$ part of the answer is
+$f'(a)$. The rules below are the sum, product, and quotient rules from calculus.</p>
+<pre>struct Dual{T&lt;:Real} &lt;: Number
+    p::T     <span class="c"># value</span>
+    d::T     <span class="c"># derivative</span>
+end
+Dual(p, d) = Dual(promote(p, d)...)
+
+import Base: +, -, *, /, inv, sin, cos, exp, show, promote_rule, convert
+
++(x::Dual, y::Dual) = Dual(x.p + y.p, x.d + y.d)              <span class="c"># sum rule</span>
+-(y::Dual)          = Dual(-y.p, -y.d)
+-(x::Dual, y::Dual) = x + -y
+*(x::Dual, y::Dual) = Dual(x.p * y.p, x.d * y.p + x.p * y.d)  <span class="c"># product rule</span>
+inv(y::Dual)        = Dual(1 / y.p, -y.d / y.p^2)
+/(x::Dual, y::Dual) = x * inv(y)                               <span class="c"># quotient rule</span>
+
+sin(y::Dual) = Dual(sin(y.p),  cos(y.p) * y.d)                 <span class="c"># chain rule</span>
+cos(y::Dual) = Dual(cos(y.p), -sin(y.p) * y.d)
+exp(y::Dual) = Dual(exp(y.p),  exp(y.p) * y.d)
+
+promote_rule(::Type{Dual{T}}, ::Type{S}) where {T&lt;:Real, S&lt;:Real} =
+    Dual{promote_type(T, S)}
+convert(::Type{Dual{T}}, x::Real) where T&lt;:Real = Dual{T}(x, zero(T))
+convert(::Type{Dual{T}}, x::Dual) where T&lt;:Real = Dual{T}(x.p, x.d)
+
+show(io::IO, x::Dual) = print(io, x.p, " + ", x.d, "*ε")
+
+ε = Dual(0, 1)</pre>
+
+<h3>Try it</h3>
+<pre>ε * ε                        <span class="c"># 0 + 0*ε</span>
+f(x)  = sin(exp(x + 1))
+fp(x) = cos(exp(x + 1)) * exp(x + 1)    <span class="c"># derivative by hand</span>
+
+f(4.0), fp(4.0)              <span class="c"># (-0.6876914116945115, -107.74841574308525)</span>
+f(4.0 + ε)                   <span class="c"># -0.6876914116945115 + -107.74841574308525*ε</span></pre>
+
+<h3>It even works through loops</h3>
+<p>The Babylonian method computes $\sqrt{x}$ by repeating $t \leftarrow (t + x/t)/2$.
+We never tell it about derivatives.</p>
+<pre>function babylonian(x; N = 10)
+    t = (1 + x) / 2
+    for i in 2:N
+        t = (t + x / t) / 2
+    end
+    return t
+end
+
+babylonian(2.0 + ε)          <span class="c"># 1.41421356237... + 0.35355339059...*ε</span>
+sqrt(2), 1 / (2sqrt(2))      <span class="c"># check: √2 and d/dx √x at x = 2</span></pre>
+
+<h3>Bonus: the derivative of $\log\det X$</h3>
+<p>Here is a fact most people have not seen. For an invertible matrix $X$,</p>
+$$ \frac{\partial}{\partial x_{ij}} \log\det X = (X^{-1})_{ji}. $$
+<p>Why: expanding the determinant along row $i$ shows that
+$\partial \det X / \partial x_{ij} = C_{ij}$, the $(i,j)$ cofactor. Also
+$X^{-1} = C^{T} / \det X$. So $\partial \log\det X / \partial x_{ij} = C_{ij} / \det X = (X^{-1})_{ji}$.</p>
+<p>Let us check it with dual numbers. We nudge one entry of $X$ by $\varepsilon$ and call
+Julia's own <code>det</code>. We need three small additions: a rule for <code>log</code>,
+and two methods that let Julia's LU code pivot on dual numbers.</p>
+<pre>using LinearAlgebra
+
+Base.log(x::Dual) = Dual(log(x.p), x.d / x.p)
+Base.abs(x::Dual) = abs(x.p)    <span class="c"># LU pivots on the value part</span>
+Base.oneunit(::Type{Dual{T}}) where T = Dual{T}(oneunit(T), zero(T))
+
+X = [4.0 1 2; 0 3 1; 1 0 5]
+D = Dual.(X, 0.0)        <span class="c"># X with zero ε parts</span>
+D[1, 2] += ε             <span class="c"># nudge the (1,2) entry</span>
+log(det(D))              <span class="c"># 4.00733... + 0.0181818...*ε</span>
+inv(X)[2, 1]             <span class="c"># 0.0181818...  (it is 1/55)</span></pre>
+<p>Note the swapped indices: nudging entry $(1,2)$ gives entry $(2,1)$ of the inverse.
+As a sanity check, nudge by a small real number instead:</p>
+<pre>t = 1e-6
+E = zeros(3, 3); E[1, 2] = 1
+(log(det(X + t*E)) - log(det(X))) / t    <span class="c"># about 0.0181818, close but not exact</span></pre>
+<p>Each dual-number pass gives one partial derivative, because $\varepsilon$ sits in one
+entry. This is <em>forward-mode</em> AD. Getting the whole gradient in one pass takes
+<em>reverse-mode</em> AD, which is what machine learning libraries use.</p>
+
+<h2>4. If time allows: why not just use $(f(x+h) - f(x))/h$?</h2>
+<p>The finite difference $\dfrac{f(x+h) - f(x)}{h}$ gets closer to $f'(x)$ as $h$ shrinks,
+but only up to a point. When $h$ is tiny, $f(x+h)$ and $f(x)$ agree in almost every digit,
+and subtracting them throws those digits away. This is called <em>catastrophic cancellation</em>.</p>
+<pre>fd(f, x, h) = (f(x + h) - f(x)) / h   <span class="c"># f is sin(exp(x + 1)) from section 3</span>
+
+f(4.0 + ε)               <span class="c"># dual numbers: -107.74841574308525 in the ε part</span>
+fp(4.0)                  <span class="c"># hand-written derivative: the same number</span>
+
+for k in 1:16
+    h = 10.0^(-k)
+    err = abs(fd(f, 4.0, h) - fp(4.0))
+    println("h = 1e-", k, "    error = ", err)
+end
+<span class="c"># the error is smallest near h = 1e-9 (about 4e-6), then grows again;
+# at h = 1e-16, 4.0 + h == 4.0 in floating point, so the error is the whole
+# derivative, about 108</span></pre>
+<p>Dual numbers never subtract nearly equal numbers to get the derivative, so there is no
+$h$ to choose and no cancellation. The answer is as accurate as $f$ itself.</p>
+
+<h2>The takeaway</h2>
+<p>We wrote two small types. We did not write a linear solver, a matrix inverse, a power
+function, or a determinant rule for derivatives. Julia's generic code and our types work
+together because methods are chosen by the types of all the arguments. That is multiple
+dispatch.</p>
+<p>Where to go next: <a href="https://juliapackages.com">juliapackages.com</a>. For real
+work, ForwardDiff.jl is a full version of our <code>Dual</code> type, and Zygote.jl and
+Enzyme.jl do reverse-mode AD.</p>
+
+<footer>
+  <p>I used Claude, an AI assistant made by Anthropic, to help prepare this handout. I tested
+  all of the code in Julia 1.13.2.</p>
+  The dual-number code is adapted from an example by Joseph Miller on the Julia Zulip.
+  The Babylonian example follows Alan Edelman's “Automatic differentiation in 10 minutes
+  with Julia.” For more on why this works, see Stefan Karpinski's JuliaCon 2019 talk,
+  “The Unreasonable Effectiveness of Multiple Dispatch.”
+</footer>
+
+</main>
+</body>
+</html>
