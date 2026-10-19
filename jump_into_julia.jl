@@ -1,5 +1,5 @@
 # All code from the handout, in order, plus checks.
-# Run with:  julia julia_taco_check.jl
+# Run with:  julia jump_into_julia.jl
 
 describe(x)          = "something"
 describe(x::Number)  = "a number"
@@ -44,22 +44,24 @@ rand(::Type{Mod{p}}, d::Integer, dims::Integer...) where p =
 
 a = Mod{7}(3)
 b = Mod{7}(5)
-a + b        # 1 (mod 7)
-a * b        # 1 (mod 7)
-inv(a)       # 5 (mod 7)
-a / b        # 2 (mod 7)
-a + 10       # 6 (mod 7)   promotion at work
+a + b        # 1 (mod 7)   3 + 5 = 8, and dividing 8 by 7 leaves a remainder of 1
+a * b        # 1 (mod 7)   3 × 5 = 15, and dividing 15 by 7 leaves a remainder of 1
+inv(a)       # 5 (mod 7)   since 3 × 5 ≡ 1
+a / b        # 2 (mod 7)   since 5 × 2 = 10 ≡ 3
+a + 10       # 6 (mod 7)   3 + 10 = 13 ≡ 6; Julia turns 10 into a Mod{7} for us
 a^100        # 4 (mod 7)   we never wrote ^ ; Julia's generic power code works
 
-A = Mod{7}.([2 1 0; 1 3 1; 0 1 4])
-b = Mod{7}.([1, 2, 3])
-x = A \ b    # Julia's generic LU solver, run in mod-7 arithmetic
-A * x == b   # true
+A = [2 1; 1 3]
+b = [7, 11]
+A \ b        # [2.0, 3.0]
 
-Ainv = inv(A)   # [1 6 2; 6 2 3; 2 3 3], the inverse mod 7
-A * Ainv        # the identity matrix, mod 7
+A = Mod{7}.([2 1; 1 3])
+b = Mod{7}.([1, 2])
+x = A \ b        # the solution, mod 7
+A * x == b       # true
 
-B = rand(Mod{7}, 4, 4)   # a random matrix (singular about 16% of the time)
+inv(A)           # the inverse matrix, mod 7
+inv(A) * b       # the same solution (but in practice, use A \ b)
 
 struct Dual{T<:Real} <: Number
     p::T     # value
@@ -89,6 +91,7 @@ show(io::IO, x::Dual) = print(io, x.p, " + ", x.d, "*ε")
 
 ε = Dual(0, 1)
 
+(3 + ε)^2                    # 9 + 6*ε
 ε * ε                        # 0 + 0*ε
 f(x)  = sin(exp(x + 1))
 fp(x) = cos(exp(x + 1)) * exp(x + 1)    # derivative by hand
@@ -115,7 +118,7 @@ Base.oneunit(::Type{Dual{T}}) where T = Dual{T}(oneunit(T), zero(T))
 
 X = [4.0 1 2; 0 3 1; 1 0 5]
 D = Dual.(X, 0.0)        # X with zero ε parts
-D[1, 2] += ε             # nudge the (1,2) entry
+D[1, 2] += ε             # add ε to the (1,2) entry
 log(det(D))              # 4.00733... + 0.0181818...*ε
 inv(X)[2, 1]             # 0.0181818...  (it is 1/55)
 
@@ -148,12 +151,14 @@ a, b = Mod{7}(3), Mod{7}(5)
 @assert a / b == Mod{7}(2)
 @assert a + 10 == Mod{7}(6)
 @assert a^100 == Mod{7}(4)
-A = Mod{7}.([2 1 0; 1 3 1; 0 1 4]); bb = Mod{7}.([1, 2, 3])
-@assert A * (A \ bb) == bb
-@assert inv(A) == Mod{7}.([1 6 2; 6 2 3; 2 3 3])
-@assert A * inv(A) == Mod{7}.([1 0 0; 0 1 0; 0 0 1])
-@assert eltype(rand(Mod{7}, 4, 4)) == Mod{7}
+@assert [2 1; 1 3] \ [7, 11] == [2.0, 3.0]
+A = Mod{7}.([2 1; 1 3]); bb = Mod{7}.([1, 2])
+@assert A \ bb == Mod{7}.([3, 2])
+@assert inv(A) == Mod{7}.([2 4; 4 6])
+@assert inv(A) * bb == Mod{7}.([3, 2])
 @assert ε * ε == Dual(0, 0)
+@assert (3 + ε)^2 == Dual(9, 6)
+@assert Mod{7}(100) == Mod{7}(2)
 @assert f(4.0 + ε).d ≈ fp(4.0)
 @assert babylonian(2.0 + ε).p ≈ sqrt(2)
 @assert babylonian(2.0 + ε).d ≈ 1 / (2sqrt(2))
