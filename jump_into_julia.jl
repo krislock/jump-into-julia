@@ -53,12 +53,15 @@ a^100        # 4 (mod 7)   we never wrote ^ ; Julia's generic power code works
 
 A = [2 1; 1 3]
 b = [7, 11]
-A \ b        # [2.0, 3.0]
+x = A \ b    # [2.0, 3.0]
+A * x        # [7.0, 11.0], which is b
+inv(A)       # the inverse of A
+inv(A) * b   # also [2.0, 3.0]
 
 A = Mod{7}.([2 1; 1 3])
 b = Mod{7}.([1, 2])
 x = A \ b        # the solution, mod 7
-A * x == b       # true
+A * x            # [1, 2], which is b
 
 inv(A)           # the inverse matrix, mod 7
 inv(A) * b       # the same solution (but in practice, use A \ b)
@@ -152,6 +155,8 @@ a, b = Mod{7}(3), Mod{7}(5)
 @assert a + 10 == Mod{7}(6)
 @assert a^100 == Mod{7}(4)
 @assert [2 1; 1 3] \ [7, 11] == [2.0, 3.0]
+@assert inv([2 1; 1 3]) * [7, 11] ≈ [2.0, 3.0]
+@assert inv([2 1; 1 3]) ≈ [0.6 -0.2; -0.2 0.4]
 A = Mod{7}.([2 1; 1 3]); bb = Mod{7}.([1, 2])
 @assert A \ bb == Mod{7}.([3, 2])
 @assert inv(A) == Mod{7}.([2 4; 4 6])
