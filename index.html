@@ -88,10 +88,25 @@
 </header>
 
 <p>Today we build two new kinds of numbers in a few lines each: integers mod $p$, and
-dual numbers that compute derivatives. Then we combine them without writing any new
-code. All you need is the Julia REPL and one small package.</p>
+dual numbers that compute derivatives. Then we use them with Julia's own code, such as
+its matrix solver and determinant, without changing that code. All you need is the Julia
+REPL and one small package.</p>
 
-<h2>0. REPL tips</h2>
+<h2>0. Getting started</h2>
+<h3>Install Julia</h3>
+<p>Go to <a href="https://julialang.org/downloads/">julialang.org/downloads</a> for full
+instructions. In short:</p>
+<ul>
+  <li>Windows: in a Command Prompt, run
+      <code>winget install --name Julia --id 9NJNWW8PVKMN -e -s msstore</code></li>
+  <li>macOS or Linux: in a terminal, run
+      <code>curl -fsSL https://install.julialang.org | sh</code></li>
+</ul>
+<p>This installs the latest stable version of Julia. Then type <code>julia</code> in a new
+terminal window to start it. If you have time before the talk, also run
+<code>] add Primes</code> (see section 2), since the first package install can take a few
+minutes.</p>
+<h3>REPL tips</h3>
 <ul>
   <li>Start Julia by typing <code>julia</code> in a terminal, or open the Julia app.</li>
   <li>Type <code>?</code> for help mode, <code>]</code> for package mode, and Backspace to go back.</li>
@@ -116,9 +131,18 @@ methods(+)           <span class="c"># + itself has around 200 methods</span></p
 many methods. We can add our own.</p>
 
 <h2>2. Integers mod $p$</h2>
-<p>The integers mod a prime $p$ form a field $\mathbb{Z}_p$: we can add, subtract, multiply,
-and divide by anything nonzero. We put $p$ <em>in the type</em>, so
-<code>Mod{7}</code> and <code>Mod{11}</code> are different types.</p>
+<p>"Mod 7" means we keep only the remainder after dividing by 7, as with days of the week:
+100 days after a Tuesday is a Thursday, since dividing 100 by 7 leaves a remainder of 2. The integers mod a prime
+$p$ form a <em>field</em>: we can add, subtract, multiply, and divide by anything nonzero.
+We write $a \equiv b \pmod 7$ when $a$ and $b$ leave the same remainder after dividing by 7.
+Division means undoing multiplication: $3/5$ is the $x$ with $5x \equiv 3$, which is $x = 2$,
+since $5 \times 2 = 10$, and dividing 10 by 7 leaves a remainder of 3. (Mod 12 this fails. To compute
+$1/3$ we need an $x$ with $3x \equiv 1$. But multiples of 3 divided by 12 only ever leave
+remainders 0, 3, 6, or 9, never 1. So $1/3$ does not exist mod 12. When the number we divide
+by is prime, this never happens.)</p>
+<p>We put $p$ <em>in the type</em>, so <code>Mod{7}</code> and <code>Mod{11}</code> are
+different types.</p>
+
 <h3>Installing a package</h3>
 <p>Julia has thousands of free packages. You can browse them at
 <a href="https://juliapackages.com">juliapackages.com</a>. We need one, Primes.jl, for its
@@ -160,29 +184,46 @@ rand(::Type{Mod{p}}, d::Integer, dims::Integer...) where p =
 <h3>Try it</h3>
 <pre>a = Mod{7}(3)
 b = Mod{7}(5)
-a + b        <span class="c"># 1 (mod 7)</span>
-a * b        <span class="c"># 1 (mod 7)</span>
-inv(a)       <span class="c"># 5 (mod 7)</span>
-a / b        <span class="c"># 2 (mod 7)</span>
-a + 10       <span class="c"># 6 (mod 7)   promotion at work</span>
+a + b        <span class="c"># 1 (mod 7)   3 + 5 = 8, and dividing 8 by 7 leaves a remainder of 1</span>
+a * b        <span class="c"># 1 (mod 7)   3 × 5 = 15, and dividing 15 by 7 leaves a remainder of 1</span>
+inv(a)       <span class="c"># 5 (mod 7)   since 3 × 5 ≡ 1</span>
+a / b        <span class="c"># 2 (mod 7)   since 5 × 2 = 10 ≡ 3</span>
+a + 10       <span class="c"># 6 (mod 7)   3 + 10 = 13 ≡ 6; Julia turns 10 into a Mod{7} for us</span>
 a^100        <span class="c"># 4 (mod 7)   we never wrote ^ ; Julia's generic power code works</span></pre>
 
-<h3>Linear algebra over $\mathbb{Z}_7$, for free</h3>
-<pre>A = Mod{7}.([2 1 0; 1 3 1; 0 1 4])
-b = Mod{7}.([1, 2, 3])
-x = A \ b    <span class="c"># Julia's generic LU solver, run in mod-7 arithmetic</span>
-A * x == b   <span class="c"># true</span>
+<h3>Solving equations mod 7, for free</h3>
+<p>A matrix is a compact way to write a system of equations:</p>
+$$ \begin{aligned} 2x + y &= 7 \\ x + 3y &= 11 \end{aligned}
+\qquad\text{is}\qquad
+\begin{bmatrix} 2 & 1 \\ 1 & 3 \end{bmatrix} \begin{bmatrix} x \\ y \end{bmatrix}
+= \begin{bmatrix} 7 \\ 11 \end{bmatrix}, \quad\text{or}\quad A\mathbf{x} = \mathbf{b}. $$
+<p>The answer is $x = 2$, $y = 3$ (check it). Julia solves $A\mathbf{x} = \mathbf{b}$ with
+<code>A \ b</code>:</p>
+<pre>A = [2 1; 1 3]
+b = [7, 11]
+A \ b        <span class="c"># [2.0, 3.0]</span></pre>
+<p>Now keep the same left-hand sides, but work mod 7:</p>
+$$ 2x + y \equiv 1, \qquad x + 3y \equiv 2 \pmod 7. $$
+<p>Julia solves it with the same <code>A \ b</code>:</p>
+<pre>A = Mod{7}.([2 1; 1 3])
+b = Mod{7}.([1, 2])
+x = A \ b        <span class="c"># the solution, mod 7</span>
+A * x == b       <span class="c"># true</span>
 
-Ainv = inv(A)   <span class="c"># [1 6 2; 6 2 3; 2 3 3], the inverse mod 7</span>
-A * Ainv        <span class="c"># the identity matrix, mod 7</span>
-
-B = rand(Mod{7}, 4, 4)   <span class="c"># a random matrix (singular about 16% of the time)</span></pre>
+inv(A)           <span class="c"># the inverse matrix, mod 7</span>
+inv(A) * b       <span class="c"># the same solution (but in practice, use A \ b)</span></pre>
+<p>Check Julia's answer by hand: put its $x$ and $y$ into both equations, then find the
+remainders after dividing by 7.</p>
 <p>Nobody who wrote Julia's <code>\</code> knew about our <code>Mod</code> type. It works
 because the solver only needs <code>+</code>, <code>-</code>, <code>*</code>,
 <code>/</code>, and a way to pick pivots, and we supplied those.</p>
 
 <h2>3. Automatic differentiation with dual numbers</h2>
-<p>A dual number is $a + b\varepsilon$, where $\varepsilon^2 = 0$. Expanding gives</p>
+<p>You may know $i$, a new number with $i^2 = -1$. A dual number uses a new number
+$\varepsilon$ that is not zero but has $\varepsilon^2 = 0$. No real number does this, just
+as no real number has square $-1$. Then</p>
+$$ (3 + \varepsilon)^2 = 9 + 6\varepsilon + \varepsilon^2 = 9 + 6\varepsilon $$
+<p>exactly, and $6$ is the derivative of $x^2$ at $x = 3$. In general,</p>
 $$ f(a + b\varepsilon) = f(a) + b\,f'(a)\,\varepsilon . $$
 <p>So if we evaluate $f$ at $a + \varepsilon$, the $\varepsilon$ part of the answer is
 $f'(a)$. The rules below are the sum, product, and quotient rules from calculus.</p>
@@ -215,7 +256,8 @@ show(io::IO, x::Dual) = print(io, x.p, " + ", x.d, "*ε")
 ε = Dual(0, 1)</pre>
 
 <h3>Try it</h3>
-<pre>ε * ε                        <span class="c"># 0 + 0*ε</span>
+<pre>(3 + ε)^2                    <span class="c"># 9 + 6*ε</span>
+ε * ε                        <span class="c"># 0 + 0*ε</span>
 f(x)  = sin(exp(x + 1))
 fp(x) = cos(exp(x + 1)) * exp(x + 1)    <span class="c"># derivative by hand</span>
 
@@ -242,7 +284,7 @@ $$ \frac{\partial}{\partial x_{ij}} \log\det X = (X^{-1})_{ji}. $$
 <p>Why: expanding the determinant along row $i$ shows that
 $\partial \det X / \partial x_{ij} = C_{ij}$, the $(i,j)$ cofactor. Also
 $X^{-1} = C^{T} / \det X$. So $\partial \log\det X / \partial x_{ij} = C_{ij} / \det X = (X^{-1})_{ji}$.</p>
-<p>Let us check it with dual numbers. We nudge one entry of $X$ by $\varepsilon$ and call
+<p>Let us check it with dual numbers. We add $\varepsilon$ to one entry of $X$ and call
 Julia's own <code>det</code>. We need three small additions: a rule for <code>log</code>,
 and two methods that let Julia's LU code pivot on dual numbers.</p>
 <pre>using LinearAlgebra
@@ -253,17 +295,18 @@ Base.oneunit(::Type{Dual{T}}) where T = Dual{T}(oneunit(T), zero(T))
 
 X = [4.0 1 2; 0 3 1; 1 0 5]
 D = Dual.(X, 0.0)        <span class="c"># X with zero ε parts</span>
-D[1, 2] += ε             <span class="c"># nudge the (1,2) entry</span>
+D[1, 2] += ε             <span class="c"># add ε to the (1,2) entry</span>
 log(det(D))              <span class="c"># 4.00733... + 0.0181818...*ε</span>
 inv(X)[2, 1]             <span class="c"># 0.0181818...  (it is 1/55)</span></pre>
 <p>Note the swapped indices: nudging entry $(1,2)$ gives entry $(2,1)$ of the inverse.
-As a sanity check, nudge by a small real number instead:</p>
+As a sanity check, add a small real number $t$ instead:</p>
 <pre>t = 1e-6
 E = zeros(3, 3); E[1, 2] = 1
 (log(det(X + t*E)) - log(det(X))) / t    <span class="c"># about 0.0181818, close but not exact</span></pre>
 <p>Each dual-number pass gives one partial derivative, because $\varepsilon$ sits in one
 entry. This is <em>forward-mode</em> AD. Getting the whole gradient in one pass takes
-<em>reverse-mode</em> AD, which is what machine learning libraries use.</p>
+<em>reverse-mode</em> AD. In machine learning it is called <em>backpropagation</em>, and it is
+how neural networks are trained.</p>
 
 <h2>4. If time allows: why not just use $(f(x+h) - f(x))/h$?</h2>
 <p>The finite difference $\dfrac{f(x+h) - f(x)}{h}$ gets closer to $f'(x)$ as $h$ shrinks,
