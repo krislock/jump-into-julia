@@ -162,7 +162,7 @@ isprime(7), isprime(91)   <span class="c"># (true, false)   91 = 7 × 13</span><
     end
 end
 
-import Base: +, -, *, /, inv, show, promote_rule, oneunit, abs, rand
+import Base: +, -, *, /, inv, show, promote_rule, oneunit, abs
 
 show(io::IO, a::Mod{p}) where p =
     print(io, get(io, :compact, false) ? a.k : "$(a.k) (mod $p)")
@@ -176,10 +176,7 @@ inv(a::Mod{p}) where p = Mod{p}(invmod(a.k, p))
 
 promote_rule(::Type{Mod{p}}, ::Type{Int}) where p = Mod{p}   <span class="c"># Mod + Int gives Mod</span>
 oneunit(::Type{Mod{p}}) where p = Mod{p}(1)
-abs(a::Mod{p}) where p = a.k        <span class="c"># used by \ to choose pivots</span>
-
-rand(::Type{Mod{p}}, d::Integer, dims::Integer...) where p =
-    Mod{p}.(rand(0:p-1, d, dims...))</pre>
+abs(a::Mod{p}) where p = a.k        <span class="c"># used by \ to choose pivots</span></pre>
 
 <h3>Try it</h3>
 <pre>a = Mod{7}(3)
@@ -268,7 +265,8 @@ f(x)  = sin(exp(x + 1))
 fp(x) = cos(exp(x + 1)) * exp(x + 1)    <span class="c"># derivative by hand</span>
 
 f(4.0), fp(4.0)              <span class="c"># (-0.6876914116945115, -107.74841574308525)</span>
-f(4.0 + ε)                   <span class="c"># -0.6876914116945115 + -107.74841574308525*ε</span></pre>
+f(4.0 + ε)                   <span class="c"># -0.6876914116945115 + -107.74841574308525*ε</span>
+fp(4.0 + ε)                  <span class="c"># the ε part is f''(4.0), about 15039.66</span></pre>
 
 <h3>It even works through loops</h3>
 <p>The Babylonian method computes $\sqrt{x}$ by repeating $t \leftarrow (t + x/t)/2$.
@@ -291,13 +289,12 @@ $$ \frac{\partial}{\partial x_{ij}} \log\det X = (X^{-1})_{ji}. $$
 $\partial \det X / \partial x_{ij} = C_{ij}$, the $(i,j)$ cofactor. Also
 $X^{-1} = C^{T} / \det X$. So $\partial \log\det X / \partial x_{ij} = C_{ij} / \det X = (X^{-1})_{ji}$.</p>
 <p>Let us check it with dual numbers. We add $\varepsilon$ to one entry of $X$ and call
-Julia's own <code>det</code>. We need three small additions: a rule for <code>log</code>,
-and two methods that let Julia's LU code pivot on dual numbers.</p>
+Julia's own <code>det</code>. We need two small additions: a rule for <code>log</code>,
+and a method that lets Julia's LU code pivot on dual numbers.</p>
 <pre>using LinearAlgebra
 
 Base.log(x::Dual) = Dual(log(x.p), x.d / x.p)
 Base.abs(x::Dual) = abs(x.p)    <span class="c"># LU pivots on the value part</span>
-Base.oneunit(::Type{Dual{T}}) where T = Dual{T}(oneunit(T), zero(T))
 
 X = [4.0 1 2; 0 3 1; 1 0 5]
 D = Dual.(X, 0.0)        <span class="c"># X with zero ε parts</span>

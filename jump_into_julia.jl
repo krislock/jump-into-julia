@@ -23,7 +23,7 @@ struct Mod{p} <: Integer
     end
 end
 
-import Base: +, -, *, /, inv, show, promote_rule, oneunit, abs, rand
+import Base: +, -, *, /, inv, show, promote_rule, oneunit, abs
 
 show(io::IO, a::Mod{p}) where p =
     print(io, get(io, :compact, false) ? a.k : "$(a.k) (mod $p)")
@@ -38,9 +38,6 @@ inv(a::Mod{p}) where p = Mod{p}(invmod(a.k, p))
 promote_rule(::Type{Mod{p}}, ::Type{Int}) where p = Mod{p}   # Mod + Int gives Mod
 oneunit(::Type{Mod{p}}) where p = Mod{p}(1)
 abs(a::Mod{p}) where p = a.k        # used by \ to choose pivots
-
-rand(::Type{Mod{p}}, d::Integer, dims::Integer...) where p =
-    Mod{p}.(rand(0:p-1, d, dims...))
 
 a = Mod{7}(3)
 b = Mod{7}(5)
@@ -101,6 +98,7 @@ fp(x) = cos(exp(x + 1)) * exp(x + 1)    # derivative by hand
 
 f(4.0), fp(4.0)              # (-0.6876914116945115, -107.74841574308525)
 f(4.0 + ε)                   # -0.6876914116945115 + -107.74841574308525*ε
+fp(4.0 + ε)                  # the ε part is f''(4.0), about 15039.66
 
 function babylonian(x; N = 10)
     t = (1 + x) / 2
@@ -117,7 +115,6 @@ using LinearAlgebra
 
 Base.log(x::Dual) = Dual(log(x.p), x.d / x.p)
 Base.abs(x::Dual) = abs(x.p)    # LU pivots on the value part
-Base.oneunit(::Type{Dual{T}}) where T = Dual{T}(oneunit(T), zero(T))
 
 X = [4.0 1 2; 0 3 1; 1 0 5]
 D = Dual.(X, 0.0)        # X with zero ε parts
@@ -165,6 +162,7 @@ A = Mod{7}.([2 1; 1 3]); bb = Mod{7}.([1, 2])
 @assert (3 + ε)^2 == Dual(9, 6)
 @assert Mod{7}(100) == Mod{7}(2)
 @assert f(4.0 + ε).d ≈ fp(4.0)
+@assert abs(fp(4.0 + ε).d - 15039.66) < 0.01
 @assert babylonian(2.0 + ε).p ≈ sqrt(2)
 @assert babylonian(2.0 + ε).d ≈ 1 / (2sqrt(2))
 L = log(det(D))
