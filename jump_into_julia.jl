@@ -63,7 +63,7 @@ A * x            # [1, 2], which is b
 inv(A)           # the inverse matrix, mod 7
 inv(A) * b       # the same solution (but in practice, use A \ b)
 
-struct Dual{T<:Real} <: Number
+struct Dual{T<:Number} <: Number
     p::T     # value
     d::T     # derivative
 end
@@ -82,10 +82,10 @@ sin(y::Dual) = Dual(sin(y.p),  cos(y.p) * y.d)                 # chain rule
 cos(y::Dual) = Dual(cos(y.p), -sin(y.p) * y.d)
 exp(y::Dual) = Dual(exp(y.p),  exp(y.p) * y.d)
 
-promote_rule(::Type{Dual{T}}, ::Type{S}) where {T<:Real, S<:Real} =
+promote_rule(::Type{Dual{T}}, ::Type{S}) where {T<:Number, S<:Real} =
     Dual{promote_type(T, S)}
-convert(::Type{Dual{T}}, x::Real) where T<:Real = Dual{T}(x, zero(T))
-convert(::Type{Dual{T}}, x::Dual) where T<:Real = Dual{T}(x.p, x.d)
+convert(::Type{Dual{T}}, x::Real) where T<:Number = Dual{T}(x, zero(T))
+convert(::Type{Dual{T}}, x::Dual) where T<:Number = Dual{T}(x.p, x.d)
 
 show(io::IO, x::Dual) = print(io, x.p, " + ", x.d, "*ε")
 
@@ -98,7 +98,11 @@ fp(x) = cos(exp(x + 1)) * exp(x + 1)    # derivative by hand
 
 f(4.0), fp(4.0)              # (-0.6876914116945115, -107.74841574308525)
 f(4.0 + ε)                   # -0.6876914116945115 + -107.74841574308525*ε
-fp(4.0 + ε)                  # the ε part is f''(4.0), about 15039.66
+
+D(g) = x -> g(Dual(x, one(x))).d
+
+D(f)(4.0)                    # -107.74841574308525, the same as fp(4.0)
+D(D(f))(4.0)                 # 15039.662941328417, which is f''(4.0)
 
 function babylonian(x; N = 10)
     t = (1 + x) / 2
@@ -117,9 +121,9 @@ Base.log(x::Dual) = Dual(log(x.p), x.d / x.p)
 Base.abs(x::Dual) = abs(x.p)    # LU pivots on the value part
 
 X = [4.0 1 2; 0 3 1; 1 0 5]
-D = Dual.(X, 0.0)        # X with zero ε parts
-D[1, 2] += ε             # add ε to the (1,2) entry
-log(det(D))              # 4.00733... + 0.0181818...*ε
+Y = Dual.(X, 0.0)        # X with zero ε parts
+Y[1, 2] += ε             # add ε to the (1,2) entry
+log(det(Y))              # 4.00733... + 0.0181818...*ε
 inv(X)[2, 1]             # 0.0181818...  (it is 1/55)
 
 t = 1e-6
@@ -162,10 +166,11 @@ A = Mod{7}.([2 1; 1 3]); bb = Mod{7}.([1, 2])
 @assert (3 + ε)^2 == Dual(9, 6)
 @assert Mod{7}(100) == Mod{7}(2)
 @assert f(4.0 + ε).d ≈ fp(4.0)
-@assert abs(fp(4.0 + ε).d - 15039.66) < 0.01
+@assert D(f)(4.0) ≈ fp(4.0)
+@assert D(D(f))(4.0) ≈ fp(4.0 + ε).d
 @assert babylonian(2.0 + ε).p ≈ sqrt(2)
 @assert babylonian(2.0 + ε).d ≈ 1 / (2sqrt(2))
-L = log(det(D))
+L = log(det(Y))
 display(L)
 @assert L.p ≈ log(det(X))
 @assert L.d ≈ inv(X)[2, 1] ≈ 1/55

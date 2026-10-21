@@ -230,7 +230,7 @@ $$ (3 + \varepsilon)^2 = 9 + 6\varepsilon + \varepsilon^2 = 9 + 6\varepsilon $$
 $$ f(a + b\varepsilon) = f(a) + b\,f'(a)\,\varepsilon . $$
 <p>So if we evaluate $f$ at $a + \varepsilon$, the $\varepsilon$ part of the answer is
 $f'(a)$. The rules below are the sum, product, and quotient rules from calculus.</p>
-<pre>struct Dual{T&lt;:Real} &lt;: Number
+<pre>struct Dual{T&lt;:Number} &lt;: Number
     p::T     <span class="c"># value</span>
     d::T     <span class="c"># derivative</span>
 end
@@ -249,10 +249,10 @@ sin(y::Dual) = Dual(sin(y.p),  cos(y.p) * y.d)                 <span class="c">#
 cos(y::Dual) = Dual(cos(y.p), -sin(y.p) * y.d)
 exp(y::Dual) = Dual(exp(y.p),  exp(y.p) * y.d)
 
-promote_rule(::Type{Dual{T}}, ::Type{S}) where {T&lt;:Real, S&lt;:Real} =
+promote_rule(::Type{Dual{T}}, ::Type{S}) where {T&lt;:Number, S&lt;:Real} =
     Dual{promote_type(T, S)}
-convert(::Type{Dual{T}}, x::Real) where T&lt;:Real = Dual{T}(x, zero(T))
-convert(::Type{Dual{T}}, x::Dual) where T&lt;:Real = Dual{T}(x.p, x.d)
+convert(::Type{Dual{T}}, x::Real) where T&lt;:Number = Dual{T}(x, zero(T))
+convert(::Type{Dual{T}}, x::Dual) where T&lt;:Number = Dual{T}(x.p, x.d)
 
 show(io::IO, x::Dual) = print(io, x.p, " + ", x.d, "*ε")
 
@@ -265,8 +265,16 @@ f(x)  = sin(exp(x + 1))
 fp(x) = cos(exp(x + 1)) * exp(x + 1)    <span class="c"># derivative by hand</span>
 
 f(4.0), fp(4.0)              <span class="c"># (-0.6876914116945115, -107.74841574308525)</span>
-f(4.0 + ε)                   <span class="c"># -0.6876914116945115 + -107.74841574308525*ε</span>
-fp(4.0 + ε)                  <span class="c"># the ε part is f''(4.0), about 15039.66</span></pre>
+f(4.0 + ε)                   <span class="c"># -0.6876914116945115 + -107.74841574308525*ε</span></pre>
+
+<h3>Second derivatives</h3>
+<p>A function can return a new function. Here <code>D(g)</code> returns the derivative of
+<code>g</code>. Apply <code>D</code> twice to get the second derivative. The inner
+<code>D</code> puts a dual number inside a dual number, so the two $\varepsilon$s stay separate.</p>
+<pre>D(g) = x -&gt; g(Dual(x, one(x))).d
+
+D(f)(4.0)                    <span class="c"># -107.74841574308525, the same as fp(4.0)</span>
+D(D(f))(4.0)                 <span class="c"># 15039.662941328417, which is f''(4.0)</span></pre>
 
 <h3>It even works through loops</h3>
 <p>The Babylonian method computes $\sqrt{x}$ by repeating $t \leftarrow (t + x/t)/2$.
@@ -297,9 +305,9 @@ Base.log(x::Dual) = Dual(log(x.p), x.d / x.p)
 Base.abs(x::Dual) = abs(x.p)    <span class="c"># LU pivots on the value part</span>
 
 X = [4.0 1 2; 0 3 1; 1 0 5]
-D = Dual.(X, 0.0)        <span class="c"># X with zero ε parts</span>
-D[1, 2] += ε             <span class="c"># add ε to the (1,2) entry</span>
-log(det(D))              <span class="c"># 4.00733... + 0.0181818...*ε</span>
+Y = Dual.(X, 0.0)        <span class="c"># X with zero ε parts</span>
+Y[1, 2] += ε             <span class="c"># add ε to the (1,2) entry</span>
+log(det(Y))              <span class="c"># 4.00733... + 0.0181818...*ε</span>
 inv(X)[2, 1]             <span class="c"># 0.0181818...  (it is 1/55)</span></pre>
 <p>Note the swapped indices: nudging entry $(1,2)$ gives entry $(2,1)$ of the inverse.
 As a sanity check, add a small real number $t$ instead:</p>
